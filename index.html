@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <title>Document</title>
+</head>
+
+<body>
+    <style>
+        #options {
+            display: flex;
+            align-items: flex-start;
+            flex-direction: column;
+        }
+        
+        #modal {
+            position: absolute;
+            background-color: #f8f9fa;
+            width: 80%;
+            left: 10%;
+            height: 90vh;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+            padding: 10px;
+        }
+    </style>
+    <a class="waves-effect waves-light btn" onclick="triggerUpload()" style="width: 200px;">
+    Upload
+</a>
+    <button onclick="submit()">Submit</button>
+    <input id="uploadHtml" type="file" hidden name="htmlFile" accept="*html" />
+    <br>
+    <small style="color:white;font-weight: 100;">*Data will be stored is a varable called reportData</small>
+
+    <div id="options">
+        <table class="striped">
+            <thead>
+                <tr>
+                    <th>Property Name</th>
+                    <th>Property Option</th>
+                    <th>Property Acrtion</th>
+                </tr>
+            </thead>
+
+            <tbody id="propertyTable">
+
+            </tbody>
+    </div>
+
+
+    <div id="modal" hidden>
+
+        <input id="uploadHtmlData" type="file" hidden name="htmlFile" accept="*html" />
+    </div>
+
+    <script>
+        var htmlOutput;
+        var params = []
+        var values = {}
+        var currentUploadTarget;
+
+        const submit = () => {
+            htmlOutput = htmlOutput.replace("let data = {}", "let data =" + JSON.stringify(values))
+            var element = document.createElement('a');
+            element.setAttribute('href', 'data:html/plain;charset=utf-8,' + encodeURIComponent(htmlOutput));
+            element.setAttribute('download', "report.html");
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
+        }
+        const triggerUpload = () => document.getElementById('uploadHtml').click();
+        document.getElementById('uploadHtmlData')
+            .addEventListener('change', function() {
+                var fl = new FileReader();
+                fl.onload = function() {
+                    readCVS(fl.result)
+                }
+
+                fl.readAsText(this.files[0]);
+
+            })
+
+        const objBuilder = (line, properties) => {
+            let obj = new Object()
+            let data = line.split(';')
+        }
+
+        const readCVS = (csv) => {
+            let data = []
+            let lines = csv.split("\n");
+            lines.forEach(item => {
+                let row = item.split(';')
+                data.push(row)
+            });
+            values[currentUploadTarget] = data
+            console.log(values)
+        }
+
+        document.getElementById('uploadHtml')
+            .addEventListener('change', function() {
+                var fl = new FileReader();
+                fl.onload = function() {
+                    formatHtml(fl.result)
+                }
+
+                fl.readAsText(this.files[0]);
+            })
+
+        const formatHtml = (html = "") => {
+            let start = html.indexOf('<Data>')
+            let end = html.indexOf('</Data>')
+            let result = html.substring(start, end + 7);
+            htmlOutput = html.substring(0, start) + html.substring(end + 7)
+            while (result.indexOf('[') != -1) {
+                start = result.indexOf('[')
+                end = result.indexOf(']')
+                let item = result.substring(start + 1, end)
+                params.push(item)
+                result = result.substring(0, start) + result.substring(result.indexOf(']') + 1)
+            }
+
+            displayOption()
+
+        }
+
+        const displayOption = () => {
+            var switchEventListners = []
+            var textEventListners = []
+            var table = document.getElementById('propertyTable')
+            for (var item of params) {
+                var select = document.createElement('select');
+                var option = document.createElement('option');
+                option.value = option.textContent = "String";
+                select.appendChild(option);
+                option.value = option.textContent = "List";
+                select.appendChild(option);
+                table.innerHTML += `<tr> 
+                    <td>${item}</td>
+                    <td ">  <div class="switch">
+                        <label style="color:white">
+                        String
+                        <input id="${item}CheckBox" name="${item}" type="checkbox">
+                        <span class="lever"></span>
+                        List
+                        </label>
+                        </div>
+                    </td>
+                    <td id="${item}Cell"><input name="${item}"  id="${item}TextField" type="text"  class="validate"></td>
+                    </tr>`
+                switchEventListners.push(`${item}CheckBox`)
+                textEventListners.push(`${item}TextField`)
+            }
+            switchEventListners.forEach(item => {
+                document.getElementById(item).addEventListener('change', function(e) {
+
+                    switchOptionChanged(e.target.id, e.target.checked, e.target.name)
+                })
+            })
+
+            textEventListners.forEach(item => {
+                document.getElementById(item).addEventListener('change', function(e) {
+                    textChanged(e.target.id, e.target.value, e.target.name)
+                })
+            })
+
+        }
+
+        const textChanged = (id, value, name) => {
+            values[name] = value
+            console.log(values)
+        }
+
+        const switchOptionChanged = (id, value, name) => {
+            console.log(id, value, name)
+            var tableCell = document.getElementById(name + 'Cell')
+            if (value === true) {
+                tableCell.innerHTML = `   <button name="${name}" id="${id}Button" class="btn waves-effect waves-light" type="submit" name="action">Upload
+    <i class="material-icons right">send</i>
+  </button>`
+
+
+                document.getElementById(`${id}Button`).addEventListener('click', function(e) {
+                    currentUploadTarget = e.target.name
+                    document.getElementById('uploadHtmlData').click()
+
+                })
+
+            } else {
+                tableCell.innerHTML = `<input  id="${id}TextField" name="${name}" type="text"  class="validate">`
+                document.getElementById(`${id}TextField`).addEventListener('change', function(e) {
+                    textChanged(e.target.id, e.target.value, e.target.name)
+                })
+
+            }
+        }
+    </script>
+</body>
+
+</html>
